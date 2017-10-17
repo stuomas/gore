@@ -7,61 +7,77 @@ import (
 	"os/exec"
 )
 
-//func parseFlags
-//func goBuild
-//func runSCP
-//func runSSH
-
-func main() {
-	// TODO: Make separate functions
-
-	// Takes filename (without .go) as user input
-	flagFile := flag.String("f", "", "File to be compiled and executed at target.")
-	flag.Parse()
-
-	// TODO: Add as flags and with defaults read from configuration file (toml?)
-	osys := "linux"
-	armv := "7"
-	arch := "ARM"
-	targ := "rasp"
-	user := "pi"
-	tdir := "/home/pi/go/bin/"
-
-	// Start build process
-	buildArg := "/home/tuomas/go/src/github.com/stuomas/piserve/" + *flagFile + ".go"
-	cmdBuild := exec.Command("go", "build", buildArg)
-	cmdBuild.Env = append(os.Environ(),
+//Build the input source file
+func runGoBuild(file string, osys string, arch string, armv string) {
+	cmdBuild := exec.Command("go", "build", file)
+	cmdBuild.Env = append(os.Environ(), 
 		"GOARM=" + armv,
 		"GOOS=" + osys,
 		"GOARCH=" + arch,
 	)
-	fmt.Printf("Cross-compiling for %s %s...", arch+armv, osys)
-	errBuild := cmdBuild.Run()
+	fmt.Printf("Cross-compiling for %s %s...", arch + armv, osys)
+	stdoutStderr, errBuild := cmdBuild.CombinedOutput()
 	if errBuild != nil {
-		fmt.Printf("Failure!\n")
+		fmt.Printf("Failed!\n \u2937 %s", stdoutStderr)
+		os.Exit(1)
 	} else {
-		fmt.Printf("Success!\n")
+		fmt.Printf("Success!\n \u2937 %s", stdoutStderr)
 	}
+}
 
-	// Start scp process
-	scpArgs := []string{*flagFile, user + "@" + targ + ":" + tdir}
-	cmdScp := exec.Command("scp", scpArgs...)
-	fmt.Printf("Copying binary to target %s...", tdir)
-	errScp := cmdScp.Run()
+//Copy binary to target with scp
+func runSCP(args []string) {
+	cmdScp := exec.Command("scp", args...)
+	fmt.Printf("Copying binary to target...")
+	stdoutStderr, errScp := cmdScp.CombinedOutput()
 	if errScp != nil {
-		fmt.Printf("Failure!\n")
+		fmt.Printf("Failed!\n \u2937 %s", stdoutStderr)
+		os.Exit(1)
 	} else {
-		fmt.Printf("Success!\n")
+		fmt.Printf("Success!\n \u2937 %s", stdoutStderr)
+	}
+}
+
+//Execute binary at target via SSH
+func runSSH(args []string) {
+	//TODO: password prompt not working, only key-based authentication works 
+	cmdSSH := exec.Command("ssh", args...)
+	fmt.Printf("Running freshly built binary at target...")
+	stdoutStderr, errSSH := cmdSSH.CombinedOutput()
+	if errSSH != nil {
+		fmt.Printf("Failed!\n \u2937 %s", stdoutStderr)
+		os.Exit(1)
+	} else {
+		fmt.Printf("Success!\n \u2937 %s", stdoutStderr)
+	}
+}
+
+func main() {
+	//TODO: Defaults read from configuration file (toml?)
+	osysDefault := "linux"
+	armvDefault := "7"
+	archDefault := "ARM"
+	targDefault := "rasp"
+	userDefault := "pi"
+	tdirDefault := "/home/pi/go/bin/" //$GOBIN?
+
+	//User input arguments
+	flagFile := flag.String("f", "", "Source file to be compiled and executed at target.")
+	flagOsys := flag.String("o", osysDefault, "Target operating system.")
+	flagArch := flag.String("a", archDefault, "Target architecture.")
+	flagArmv := flag.String("v", armvDefault, "ARM version.")
+	flagTarg := flag.String("t", targDefault, "Target IP or hostname.")
+	flagUser := flag.String("u", userDefault, "Username at target.")
+	flagTdir := flag.String("d", tdirDefault, "Target directory.")
+
+	flag.Parse()
+
+	if *flagFile == "" {
+		fmt.Println("Please specify a source file.")
+		os.Exit(1)
 	}
 
-	// Execute via SSH at target
-	sshArgs := []string{"-t", "pi@rasp", "'./main'"}
-	cmdSSH := exec.Command("ssh", sshArgs...)
-	fmt.Printf("Running freshly built binary at target...")
-	errSSH := cmdSSH.Run()
-	if errSSH != nil {
-		fmt.Printf("Failure!\n")
-	} else {
-		fmt.Printf("Success!\n")
-	}
+	runGoBuild(*flagFile + ".go", *flagOsys, *flagArch, *flagArmv)
+	runSCP([]string{*flagFile, *flagUser + "@" + *flagTarg + ":" + *flagTdir})
+	runSSH([]string{"-t", *flagUser + "@" + *flagTarg, "'./" + *flagFile + "'"})	
 }

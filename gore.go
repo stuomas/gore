@@ -10,18 +10,18 @@ import (
 //Build the input source file
 func runGoBuild(file string, osys string, arch string, armv string) {
 	cmdBuild := exec.Command("go", "build", file)
-	cmdBuild.Env = append(os.Environ(), 
-		"GOARM=" + armv,
-		"GOOS=" + osys,
-		"GOARCH=" + arch,
+	cmdBuild.Env = append(os.Environ(),
+		"GOARM="+armv,
+		"GOOS="+osys,
+		"GOARCH="+arch,
 	)
-	fmt.Printf("Cross-compiling for %s %s...", arch + armv, osys)
+	fmt.Printf("Cross-compiling for %s %s...", arch+armv, osys)
 	stdoutStderr, err := cmdBuild.CombinedOutput()
 	if err != nil {
-		fmt.Printf("Failed!\n \u2937 %s", stdoutStderr)
+		fmt.Printf("\x1b[31;1mFailed!\x1b[0m\n \u2937 %s", stdoutStderr)
 		os.Exit(1)
 	} else {
-		fmt.Printf("Success!\n \u2937 %s", stdoutStderr)
+		fmt.Printf("\x1b[32;1mSuccess!\x1b[0m\n")
 	}
 }
 
@@ -31,24 +31,24 @@ func runSCP(args []string) {
 	fmt.Printf("Copying binary to target...")
 	stdoutStderr, err := cmdScp.CombinedOutput()
 	if err != nil {
-		fmt.Printf("Failed!\n \u2937 %s", stdoutStderr)
+		fmt.Printf("\x1b[31;1mFailed!\x1b[0m\n \u2937 %s", stdoutStderr)
 		os.Exit(1)
 	} else {
-		fmt.Printf("Success!\n \u2937 %s", stdoutStderr)
+		fmt.Printf("\x1b[32;1mSuccess!\x1b[0m\n")
 	}
 }
 
 //Execute binary at target via SSH
 func runSSH(args []string) {
-	//TODO: password prompt not working, only key-based authentication works 
+	//TODO: password prompt not working, only key-based authentication works
 	cmdSSH := exec.Command("ssh", args...)
 	fmt.Printf("Running freshly built binary at target...")
 	stdoutStderr, err := cmdSSH.CombinedOutput()
 	if err != nil {
-		fmt.Printf("Failed!\n \u2937 %s", stdoutStderr)
+		fmt.Printf("\x1b[31;1mFailed!\x1b[0m\n \u2937 %s", stdoutStderr)
 		os.Exit(1)
 	} else {
-		fmt.Printf("Success!\n \u2937 %s", stdoutStderr)
+		fmt.Printf("\x1b[32;1mSuccess!\x1b[0m\n") //TODO: Not executed
 	}
 }
 
@@ -56,10 +56,10 @@ func main() {
 	//TODO: Defaults read from configuration file (toml?)
 	osysDefault := "linux"
 	armvDefault := "7"
-	archDefault := "ARM"
+	archDefault := "arm"
 	targDefault := "rasp"
 	userDefault := "pi"
-	tdirDefault := "/home/pi/go/bin/" //$GOBIN?
+	tdirDefault := "/home/pi/go/bin/"
 
 	//User input arguments
 	flagFile := flag.String("f", "", "Source file to be compiled and executed at target.")
@@ -78,14 +78,17 @@ func main() {
 	}
 
 	//File flag with or without .go ending, whatevs
-	var fileEnd string;
+	var fileBuild string
+	var fileBinary string
 	if (*flagFile)[len(*flagFile)-3:] == ".go" {
-		fileEnd = ""
+		fileBuild = *flagFile
+		fileBinary = (*flagFile)[:len(*flagFile)-3]
 	} else {
-		fileEnd = ".go"
+		fileBuild = *flagFile + ".go"
+		fileBinary = *flagFile
 	}
 
-	runGoBuild(*flagFile + fileEnd, *flagOsys, *flagArch, *flagArmv)
-	runSCP([]string{*flagFile, *flagUser + "@" + *flagTarg + ":" + *flagTdir})
-	runSSH([]string{"-t", *flagUser + "@" + *flagTarg, "'./" + *flagFile + "'"})	
+	runGoBuild(fileBuild, *flagOsys, *flagArch, *flagArmv)
+	runSCP([]string{fileBinary, *flagUser + "@" + *flagTarg + ":" + *flagTdir})
+	runSSH([]string{"-t", *flagUser + "@" + *flagTarg, "'./" + fileBinary + "'"})
 }

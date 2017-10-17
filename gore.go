@@ -16,8 +16,8 @@ func runGoBuild(file string, osys string, arch string, armv string) {
 		"GOARCH=" + arch,
 	)
 	fmt.Printf("Cross-compiling for %s %s...", arch + armv, osys)
-	stdoutStderr, errBuild := cmdBuild.CombinedOutput()
-	if errBuild != nil {
+	stdoutStderr, err := cmdBuild.CombinedOutput()
+	if err != nil {
 		fmt.Printf("Failed!\n \u2937 %s", stdoutStderr)
 		os.Exit(1)
 	} else {
@@ -29,8 +29,8 @@ func runGoBuild(file string, osys string, arch string, armv string) {
 func runSCP(args []string) {
 	cmdScp := exec.Command("scp", args...)
 	fmt.Printf("Copying binary to target...")
-	stdoutStderr, errScp := cmdScp.CombinedOutput()
-	if errScp != nil {
+	stdoutStderr, err := cmdScp.CombinedOutput()
+	if err != nil {
 		fmt.Printf("Failed!\n \u2937 %s", stdoutStderr)
 		os.Exit(1)
 	} else {
@@ -43,8 +43,8 @@ func runSSH(args []string) {
 	//TODO: password prompt not working, only key-based authentication works 
 	cmdSSH := exec.Command("ssh", args...)
 	fmt.Printf("Running freshly built binary at target...")
-	stdoutStderr, errSSH := cmdSSH.CombinedOutput()
-	if errSSH != nil {
+	stdoutStderr, err := cmdSSH.CombinedOutput()
+	if err != nil {
 		fmt.Printf("Failed!\n \u2937 %s", stdoutStderr)
 		os.Exit(1)
 	} else {
@@ -77,7 +77,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	runGoBuild(*flagFile + ".go", *flagOsys, *flagArch, *flagArmv)
+	//File flag with or without .go ending, whatevs
+	var fileEnd string;
+	if (*flagFile)[len(*flagFile)-3:] == ".go" {
+		fileEnd = ""
+	} else {
+		fileEnd = ".go"
+	}
+
+	runGoBuild(*flagFile + fileEnd, *flagOsys, *flagArch, *flagArmv)
 	runSCP([]string{*flagFile, *flagUser + "@" + *flagTarg + ":" + *flagTdir})
 	runSSH([]string{"-t", *flagUser + "@" + *flagTarg, "'./" + *flagFile + "'"})	
 }

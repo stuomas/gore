@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 //Build the input source file
-func runGoBuild(file string, osys string, arch string, armv string) {
-	cmdBuild := exec.Command("go", "build", file)
+func runGoBuild(args []string, osys string, arch string, armv string) {
+	cmdBuild := exec.Command("go", args...)
 	cmdBuild.Env = append(os.Environ(),
 		"GOARM="+armv,
 		"GOOS="+osys,
@@ -52,7 +53,17 @@ func runSSH(args []string) {
 	}
 }
 
+/*Filename with or without .go ending, whatevs // strings.HasSuffix() better?
+func checkFilename(file []string) ([]string, []string) {
+	if len(file) >= 3 && (file)[len(file)-3:] == ".go" {
+		return file, (file)[:len(file)-3]
+	} else {
+		return file + ".go", file
+	}
+}*/
+
 func main() {
+
 	//TODO: Defaults read from configuration file (toml?)
 	osysDefault := "linux"
 	armvDefault := "7"
@@ -61,34 +72,37 @@ func main() {
 	userDefault := "pi"
 	tdirDefault := "/home/pi/go/bin/"
 
-	//User input arguments
-	flagFile := flag.String("f", "", "Source file to be compiled and executed at target.")
-	flagOsys := flag.String("o", osysDefault, "Target operating system.")
-	flagArch := flag.String("a", archDefault, "Target architecture.")
-	flagArmv := flag.String("v", armvDefault, "ARM version.")
-	flagTarg := flag.String("t", targDefault, "Target IP or hostname.")
-	flagUser := flag.String("u", userDefault, "Username at target.")
-	flagTdir := flag.String("d", tdirDefault, "Target directory.")
-
+	//Flags set by user
+	flagOsys := flag.String("os", osysDefault, "Target operating system.")
+	flagArch := flag.String("arch", archDefault, "Target architecture.")
+	flagArmv := flag.String("arm", armvDefault, "ARM version.")
+	flagTarg := flag.String("host", targDefault, "Target IP or hostname.")
+	flagUser := flag.String("user", userDefault, "Username at target.")
+	flagTdir := flag.String("dir", tdirDefault, "Target directory.")
 	flag.Parse()
 
-	if *flagFile == "" {
-		fmt.Println("Please specify a source file.")
-		os.Exit(1)
-	}
+	var workDir string
+	var packageName string
+	var buildName string
 
-	//File flag with or without .go ending, whatevs
-	var fileBuild string
-	var fileBinary string
-	if (*flagFile)[len(*flagFile)-3:] == ".go" {
-		fileBuild = *flagFile
-		fileBinary = (*flagFile)[:len(*flagFile)-3]
+	if len(flag.Args()) > 0 {
+		workDir = flag.Arg(0)
+		packageName = workDir
+		buildName = packageName
 	} else {
-		fileBuild = *flagFile + ".go"
-		fileBinary = *flagFile
+		var err error
+		workDir, err = os.Executable()
+		if err != nil {
+			fmt.Println("Could not read path.")
+			os.Exit(1)
+		}
+		packageName = filepath.Base(workDir)
+		buildName = ""
 	}
 
-	runGoBuild(fileBuild, *flagOsys, *flagArch, *flagArmv)
-	runSCP([]string{fileBinary, *flagUser + "@" + *flagTarg + ":" + *flagTdir})
-	runSSH([]string{"-t", *flagUser + "@" + *flagTarg, "'./" + fileBinary + "'"})
+	fmt.Println("Package: " + packageName)
+	buildArgs := []string{"build", buildName}
+	runGoBuild(buildArgs, *flagOsys, *flagArch, *flagArmv)
+	runSCP([]string{packageName, *flagUser + "@" + *flagTarg + ":" + *flagTdir})
+	runSSH([]string{"-t", *flagUser + "@" + *flagTarg, "'./" + packageName + "'"})
 }

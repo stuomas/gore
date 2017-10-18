@@ -8,7 +8,8 @@ Born out of an engineer's laziness, `gore` seeks to combine three commands, `go 
 `go get github.com/stuomas/gore`
 
 ## Usage
-Set the parameters in the configuration file and command `gore <possible flags> /path/to/directory`
+Set the parameters in the configuration file and command `gore <possible parameters> /path/to/source.go` or from inside the working directory just command `gore`
+
 Optionally, set the parameters as arguments:
 ```
   -help

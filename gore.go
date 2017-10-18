@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 //Build the input source file
@@ -53,17 +54,7 @@ func runSSH(args []string) {
 	}
 }
 
-/*Filename with or without .go ending, whatevs // strings.HasSuffix() better?
-func checkFilename(file []string) ([]string, []string) {
-	if len(file) >= 3 && (file)[len(file)-3:] == ".go" {
-		return file, (file)[:len(file)-3]
-	} else {
-		return file + ".go", file
-	}
-}*/
-
 func main() {
-
 	//TODO: Defaults read from configuration file (toml?)
 	osysDefault := "linux"
 	armvDefault := "7"
@@ -81,28 +72,28 @@ func main() {
 	flagTdir := flag.String("dir", tdirDefault, "Target directory.")
 	flag.Parse()
 
-	var workDir string
+	var sourcePath string
+	var localPath string
 	var packageName string
-	var buildName string
+	var buildArgs []string
 
 	if len(flag.Args()) > 0 {
-		workDir = flag.Arg(0)
-		packageName = workDir
-		buildName = packageName
-	} else {
-		var err error
-		workDir, err = os.Executable()
-		if err != nil {
-			fmt.Println("Could not read path.")
+		sourcePath = flag.Arg(0)
+		packageName = strings.TrimSuffix(filepath.Base(sourcePath), ".go")
+		buildArgs = []string{"build", sourcePath}
+		localPath = strings.TrimSuffix(sourcePath, filepath.Base(sourcePath))
+		if !strings.HasSuffix(sourcePath, ".go") {
+			fmt.Println("Absolute path needs to target a source file.")
 			os.Exit(1)
 		}
-		packageName = filepath.Base(workDir)
-		buildName = ""
+	} else {
+		localPath = ""
+		sourcePath, _ = filepath.Abs(filepath.Dir(os.Args[0]))
+		packageName = filepath.Base(sourcePath)
+		buildArgs = []string{"build"}
 	}
 
-	fmt.Println("Package: " + packageName)
-	buildArgs := []string{"build", buildName}
 	runGoBuild(buildArgs, *flagOsys, *flagArch, *flagArmv)
-	runSCP([]string{packageName, *flagUser + "@" + *flagTarg + ":" + *flagTdir})
-	runSSH([]string{"-t", *flagUser + "@" + *flagTarg, "'./" + packageName + "'"})
+	runSCP([]string{localPath + packageName, *flagUser + "@" + *flagTarg + ":" + *flagTdir})
+	runSSH([]string{"-t", "-t", *flagUser + "@" + *flagTarg, "'" + *flagTdir + packageName + "'"})
 }

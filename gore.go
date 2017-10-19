@@ -7,15 +7,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
 	"github.com/BurntSushi/toml"
 )
 
+//Configuration file
 type Configuration struct {
-	GOOS string
-	GOARCH string
-	GOARM string
-	USERNAME string
-	HOSTNAME string
+	GOOS      string
+	GOARCH    string
+	GOARM     string
+	USERNAME  string
+	HOSTNAME  string
 	DIRECTORY string
 }
 
@@ -58,13 +60,25 @@ func runSSH(args []string) {
 	}
 }
 
+//Write initial config file and folder
+func writeConfig() {
+	//if not exists
+	confDir := filepath.Join(os.Getenv("HOME"), ".config")
+	if err := os.Mkdir(confDir, 0777); err != nil {
+		os.Exit(1)
+	}
+
+}
+
 //Read configuration file for environment variables and connection parameters
 func readConfig() Configuration {
+	confPath := filepath.Join(os.Getenv("HOME"), ".config")
 	var config Configuration
-	if _, err := toml.DecodeFile("config.toml", &config); err != nil {
-		fmt.Println("Error reading configuration file. Please check that config.toml exists and syntax is correct.")
+	if _, err := toml.DecodeFile(confPath+"/gore/config.toml", &config); err != nil {
+		fmt.Println(confPath + "/gore/config.toml")
+		fmt.Println("Error reading configuration file. Please check that config.toml exists in $XDG_CONFIG_HOME/gore/ and syntax is correct.")
 		os.Exit(1)
-	} 
+	}
 	return config
 }
 
@@ -84,7 +98,7 @@ func main() {
 	buildArgs := []string{"build"}
 
 	if flag.Arg(0) != "run" {
-		fmt.Println("\nSyntax: gore run <optional parameters> <optional path>\n\nAvailable parameters (set preferably in config.toml):\n")
+		fmt.Printf("\nSyntax: gore run <optional parameters> <optional path>\n\nAvailable parameters (set preferably in config.toml):\n")
 		flag.Usage()
 		os.Exit(1)
 	}

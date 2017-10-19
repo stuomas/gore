@@ -9,7 +9,7 @@ Born out of an engineer's laziness, `gore` seeks to combine three commands, `go 
 ## Syntax
 `gore run <optional parameters> <optional file path>`
 
-Set the parameters in the configuration file. For experimentation, you can also set the parameters as arguments:
+Set the parameters in the configuration file in `$XDG_CONFIG_HOME/gore/config.toml`. For experimentation, you can also set the parameters as arguments:
 ```
   -arch
     Target architecture.

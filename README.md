@@ -24,3 +24,6 @@ Set the parameters in the configuration file. For experimentation, you can also 
   -os 
     Target operating system.
 ```
+
+## Notes
+As of now, `gore` does not like to be bothered about passwords, so you need to have key-based authentication set up to your remote machine!

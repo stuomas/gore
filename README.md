@@ -1,7 +1,7 @@
 # gore
 Go remote run, an all-in-one Linux command for cross-compilation and execution of Go programs on a remote machine.
 
-Born out of an engineer's laziness, `gore` seeks to combine three commands, `go build`, `scp`, and `ssh` with all their necessary arguments and environment variables into one goreous tool trying to mimic—and of course, improve—the `go run` command while targeting a remote machine. Unlike `go run`, `gore run` can be run directly from your working directory without specifying a source file.
+Born out of an engineer's laziness, `gore` seeks to combine three commands, `go build`, `scp`, and `ssh` with all their necessary arguments and environment variables into one goreous tool trying to mimic—and of course, improve—the `go run` command while targeting a remote machine. Unlike `go run`, `gore run` can be run directly from your working directory without specifying a source file. It is useful e.g. when prototyping on a Raspberry Pi or similar board, where you might not want to set up a separate programming environment.
 
 ## Installation
 `go get github.com/stuomas/gore`

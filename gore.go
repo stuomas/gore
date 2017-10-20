@@ -1,15 +1,16 @@
 package main
 
 import (
-	"flag"
 	"bufio"
-	"fmt"
 	"errors"
+	"flag"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"io/ioutil"
+
 	"github.com/BurntSushi/toml"
 )
 
@@ -18,45 +19,42 @@ type Configuration struct {
 	GOOS, GOARCH, GOARM, USERNAME, HOSTNAME, DIRECTORY string
 }
 
-func askConfig() ([]string) {
+func askConfig() []string {
 	configName := []string{"GOOS", "GOARCH", "GOARM", "USERNAME", "HOSTNAME", "DIRECTORY"}
 	var configValue []string
-	fmt.Printf("It seems that you just started using gore. Please generate a configuration file for you use by answering the prompts below:\n")
+	fmt.Printf("It seems that you just started using gore. Please generate a configuration file for you use by answering the prompts below:\n\n")
 	prompt := bufio.NewReader(os.Stdin)
-	fmt.Printf("Set the environment variables to match your target system:\n")
 
 	for i := 0; i < len(configName); i++ {
-		fmt.Print("	" + configName[i] + "=")
-		configValue[i], _ = prompt.ReadString('\n')
+		fmt.Print("  " + configName[i] + "=")
+		value, _ := prompt.ReadString('\n')
+		value = strings.Trim(strings.TrimRight(value, "\n"), "\"")
+		configValue = append(configValue, "\""+value+"\"")
 	}
 	return configValue
 }
 
 //Write initial config file and folder
-func writeConfig(defConf []string) {
-	confDir := filepath.Join(os.Getenv("HOME"), ".config")
-	if err := os.Mkdir(confDir, 0755); err != nil {
+func writeConfig(defConf []string, confDir string) {
+	if err := os.MkdirAll(confDir+"/gore", 0755); err != nil {
 		fmt.Println("Error creating folder.")
 		os.Exit(1)
 	}
 	confSlice := []byte(fmt.Sprintf("GOOS=%s\nGOARCH=%s\nGOARM=%s\nUSERNAME=%s\nHOSTNAME=%s\nDIRECTORY=%s", defConf[0], defConf[1], defConf[2], defConf[3], defConf[4], defConf[5]))
-	if err := ioutil.WriteFile(confDir, confSlice, 0755); err != nil {
+	if err := ioutil.WriteFile(confDir+"/gore/config.toml", confSlice, 0755); err != nil {
 		fmt.Println("Error writing configuration file.")
 		os.Exit(1)
 	}
 }
 
 //Read configuration file for environment variables and connection parameters
-func readConfig() (Configuration, error) {
+func readConfig(confDir string) (Configuration, error) {
 	var config Configuration
-	confPath := filepath.Join(os.Getenv("HOME"), ".config")
-	if _, err := os.Stat(confPath + "/config.toml"); !os.IsNotExist(err) {
-		return config, errors.New("File exists.")
-	} 
-	if _, err := toml.DecodeFile(confPath+"/gore/config.toml", &config); err != nil {
-		//fmt.Println(confPath + "/gore/config.toml")
-		fmt.Printf("Error reading configuration file. Please check that %s/config.toml exists and syntax is correct.", confPath)
-		os.Exit(1)
+	if _, err := os.Stat(confDir + "/config.toml"); !os.IsNotExist(err) {
+		return config, errors.New("file exists")
+	}
+	if _, err := toml.DecodeFile(confDir+"/gore/config.toml", &config); err != nil {
+		return config, errors.New("file error")
 	}
 	return config, nil
 }
@@ -93,7 +91,7 @@ func runSCP(args []string) {
 //Execute binary at target via SSH
 func runSSH(args []string) {
 	cmdSSH := exec.Command("ssh", args...) //TODO: password prompt not working, only key-based authentication works
-	fmt.Printf("Running binary at target... Press ^C to stop.")
+	fmt.Printf("Running binary at target... \x1b[32;1mPress ^C to stop.\x1b[0m")
 	if stdoutStderr, err := cmdSSH.CombinedOutput(); err != nil {
 		fmt.Printf("\x1b[31;1mFailed!\x1b[0m\n \u2937 %s", stdoutStderr)
 		os.Exit(1)
@@ -101,9 +99,17 @@ func runSSH(args []string) {
 }
 
 func main() {
-	config, missing := readConfig(); 
+	confDir := filepath.Join(os.Getenv("HOME"), ".config")
+	config, missing := readConfig(confDir)
 	if missing != nil {
-		writeConfig(askConfig())
+		writeConfig(askConfig(), confDir)
+		fmt.Printf("\nConfiguration file created in %s/gore/config.toml, enjoy gore!\n\n", confDir)
+		var err error
+		config, err = readConfig(confDir)
+		if err != nil {
+			fmt.Println("Cannot read configuration file. Please check syntax.")
+			os.Exit(1)
+		}
 	}
 	flagOsys := flag.String("os", config.GOOS, "Target operating system.")
 	flagArch := flag.String("arch", config.GOARCH, "Target architecture.")

@@ -2,23 +2,63 @@ package main
 
 import (
 	"flag"
+	"bufio"
 	"fmt"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-
+	"io/ioutil"
 	"github.com/BurntSushi/toml"
 )
 
-//Configuration file
+//Configuration file structure
 type Configuration struct {
-	GOOS      string
-	GOARCH    string
-	GOARM     string
-	USERNAME  string
-	HOSTNAME  string
-	DIRECTORY string
+	GOOS, GOARCH, GOARM, USERNAME, HOSTNAME, DIRECTORY string
+}
+
+func askConfig() ([]string) {
+	configName := []string{"GOOS", "GOARCH", "GOARM", "USERNAME", "HOSTNAME", "DIRECTORY"}
+	var configValue []string
+	fmt.Printf("It seems that you just started using gore. Please generate a configuration file for you use by answering the prompts below:\n")
+	prompt := bufio.NewReader(os.Stdin)
+	fmt.Printf("Set the environment variables to match your target system:\n")
+
+	for i := 0; i < len(configName); i++ {
+		fmt.Print("	" + configName[i] + "=")
+		configValue[i], _ = prompt.ReadString('\n')
+	}
+	return configValue
+}
+
+//Write initial config file and folder
+func writeConfig(defConf []string) {
+	confDir := filepath.Join(os.Getenv("HOME"), ".config")
+	if err := os.Mkdir(confDir, 0755); err != nil {
+		fmt.Println("Error creating folder.")
+		os.Exit(1)
+	}
+	confSlice := []byte(fmt.Sprintf("GOOS=%s\nGOARCH=%s\nGOARM=%s\nUSERNAME=%s\nHOSTNAME=%s\nDIRECTORY=%s", defConf[0], defConf[1], defConf[2], defConf[3], defConf[4], defConf[5]))
+	if err := ioutil.WriteFile(confDir, confSlice, 0755); err != nil {
+		fmt.Println("Error writing configuration file.")
+		os.Exit(1)
+	}
+}
+
+//Read configuration file for environment variables and connection parameters
+func readConfig() (Configuration, error) {
+	var config Configuration
+	confPath := filepath.Join(os.Getenv("HOME"), ".config")
+	if _, err := os.Stat(confPath + "/config.toml"); !os.IsNotExist(err) {
+		return config, errors.New("File exists.")
+	} 
+	if _, err := toml.DecodeFile(confPath+"/gore/config.toml", &config); err != nil {
+		//fmt.Println(confPath + "/gore/config.toml")
+		fmt.Printf("Error reading configuration file. Please check that %s/config.toml exists and syntax is correct.", confPath)
+		os.Exit(1)
+	}
+	return config, nil
 }
 
 //Build the input source file
@@ -60,30 +100,11 @@ func runSSH(args []string) {
 	}
 }
 
-//Write initial config file and folder
-func writeConfig() {
-	//if not exists
-	confDir := filepath.Join(os.Getenv("HOME"), ".config")
-	if err := os.Mkdir(confDir, 0777); err != nil {
-		os.Exit(1)
-	}
-
-}
-
-//Read configuration file for environment variables and connection parameters
-func readConfig() Configuration {
-	confPath := filepath.Join(os.Getenv("HOME"), ".config")
-	var config Configuration
-	if _, err := toml.DecodeFile(confPath+"/gore/config.toml", &config); err != nil {
-		fmt.Println(confPath + "/gore/config.toml")
-		fmt.Println("Error reading configuration file. Please check that config.toml exists in $XDG_CONFIG_HOME/gore/ and syntax is correct.")
-		os.Exit(1)
-	}
-	return config
-}
-
 func main() {
-	config := readConfig()
+	config, missing := readConfig(); 
+	if missing != nil {
+		writeConfig(askConfig())
+	}
 	flagOsys := flag.String("os", config.GOOS, "Target operating system.")
 	flagArch := flag.String("arch", config.GOARCH, "Target architecture.")
 	flagArmv := flag.String("arm", config.GOARM, "ARM version.")
@@ -92,9 +113,7 @@ func main() {
 	flagTdir := flag.String("dir", config.DIRECTORY, "Target directory.")
 	flag.Parse()
 
-	var sourcePath string
-	var localPath string
-	var packageName string
+	var sourcePath, localPath, packageName string
 	buildArgs := []string{"build"}
 
 	if flag.Arg(0) != "run" {

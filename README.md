@@ -26,4 +26,4 @@ Set the parameters in the configuration file in `$XDG_CONFIG_HOME/gore/config.to
 ```
 
 ## Notes
-As of now, `gore` does not like to be bothered about passwords, so you need to have key-based authentication set up to your remote machine!
+As of now, `gore` does not prefer to be bothered about passwords, so you should have key-based authentication set up to your remote machine!

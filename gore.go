@@ -17,10 +17,10 @@ import (
 //Command flags
 var flagOsys, flagArch, flagArmv, flagTarg, flagUser, flagTdir string
 
-//ErrFileNotExists: File doesn't exist
+//ErrFileNotExist -> File doesn't exist
 var ErrFileNotExist error = errors.New("file does not exist")
 
-//ErrFileError: Undefined problem with file
+//ErrFileError -> Undefined problem with file
 var ErrFileError error = errors.New("cannot read file")
 
 //Configuration file structure
@@ -69,7 +69,7 @@ func writeConfig(defConf []string, confDir string) (string, error) {
 func readConfig(confDir string) (Configuration, error) {
 	var config Configuration
 	if _, err := os.Stat(confDir + "/gore/config.toml"); !os.IsNotExist(err) { //OK -> read
-		if _, err := toml.DecodeFile(confDir + "/gore/config.toml", &config); err != nil { 
+		if _, err := toml.DecodeFile(confDir+"/gore/config.toml", &config); err != nil {
 			return config, ErrFileError
 		}
 	} else {
@@ -97,7 +97,7 @@ func runGoBuild(args []string) {
 
 //Copy binary to target with scp
 func runSCP(args []string) {
-	args = append(args, flagUser + "@" + flagTarg + ":" + flagTdir)
+	args = append(args, flagUser+"@"+flagTarg+":"+flagTdir)
 	cmdSCP := exec.Command("scp", args...)
 	fmt.Printf("Copying binary to target...")
 	if stdoutStderr, err := cmdSCP.CombinedOutput(); err != nil {
@@ -110,7 +110,7 @@ func runSCP(args []string) {
 
 //Execute binary at target via SSH
 func runSSH(args []string, packageName string) {
-	args = append(args, flagUser + "@" + flagTarg, "'" + flagTdir + packageName + "'")
+	args = append(args, flagUser+"@"+flagTarg, "'"+flagTdir+packageName+"'")
 	cmdSSH := exec.Command("ssh", args...)
 	fmt.Printf("Running binary at target... \x1b[32;1mPress ^C to stop.\x1b[0m")
 	if stdoutStderr, err := cmdSSH.CombinedOutput(); err != nil {
@@ -121,26 +121,32 @@ func runSSH(args []string, packageName string) {
 
 func main() {
 	confDir := filepath.Join(os.Getenv("HOME"), ".config")
-	config, err := readConfig(confDir)
-	if err == ErrFileNotExist {
-		if fmt.Printf(writeConfig(askConfig(), confDir)); err != nil {
+	config, fileErr := readConfig(confDir)
+	if fileErr == ErrFileNotExist {
+		if returnMsg, err := writeConfig(askConfig(), confDir); err != nil {
+			fmt.Printf(returnMsg)
 			os.Exit(1)
+		} else {
+			fmt.Printf(returnMsg)
+			config, err = readConfig(confDir)
 		}
-		config, err = readConfig(confDir)
 	}
-	if err == ErrFileError {
+	if fileErr == ErrFileError {
 		fmt.Println("Cannot read configuration file.")
 		os.Exit(1)
 	}
 
 	parseFlags(config)
+
 	var sourcePath, localPath, packageName string
 	buildArgs := []string{"build"}
 
-	if flag.Arg(0) == "config" {
-		if fmt.Printf(writeConfig(askConfig(), confDir)); err != nil {
-			os.Exit(1)
-		}
+	if flag.Arg(0) == "config" && fileErr != ErrFileNotExist {
+		returnMsg, _ := writeConfig(askConfig(), confDir)
+		fmt.Printf(returnMsg)
+		os.Exit(1)
+	} else if flag.Arg(0) == "config" && fileErr == ErrFileNotExist {
+		os.Exit(1)
 	} else if flag.Arg(0) != "run" {
 		fmt.Printf("\nSyntax: gore <optional parameters> run <optional path>\n	gore config to re-configure\nAvailable parameters:\n")
 		flag.Usage()
